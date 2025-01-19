@@ -2,110 +2,165 @@ import yfinance as yf
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
-def mv_simulate_data(num_pnts, num_feat, plot=False):
+def get_ticker_data(tickers=['AAPL', 'MSFT'], period='1y', interval='1d'):
     """
-    Generate synthetic data for a multi-variable linear model,
-    plus a random intercept column and random noise. Also plots a 3D scatter.
-    
-    Args:
-        num_pnts (int): Number of data points.
-        num_feat (int): Number of features (excluding intercept).
-    Returns:
-        x (ndarray): Feature matrix of shape (num_pnts, num_feat+1).
-        y (ndarray): Labels of shape (num_pnts, 1).
-        beta (ndarray): True beta vector used for data generation, shape (num_feat+1, 1).
+    Download price data from Yahoo Finance for given tickers and timeframe.
+
+    :param tickers: list or tuple of ticker symbols, e.g. ['AAPL', 'MSFT']
+    :param period: data period, e.g. '1y'
+    :param interval: data interval, e.g. '1d'
+    :param kwargs: additional keyword arguments for yf.download
+    :return: Pandas DataFrame with downloaded data
     """    
-    # Features
-    x = np.random.uniform(-1, 1, (num_pnts, num_feat)) # n x p
-    x = np.hstack((x, np.ones((num_pnts,1)))) # n x (p + 1) # Adding column of ones for intercept
+    data = yf.download(tickers, period, interval)
+    return data
 
-    # Beta
-    beta = np.random.uniform(-1, 1, (num_feat + 1, 1)) # (p + 1) x 1
-    noise = np.random.normal(0, 0.1, (num_pnts, 1)) # n x 1
+def get_lag_ret_data(data, tickers, num_lags=3):
+    """
+    Adds percent-change columns (Percent_change) and lagged values for each ticker.
     
-    # Label
-    y = x @ beta + noise
-    
-    if plot and (num_feat == 2):
-        fig = plt.figure(figsize=(10, 7))
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(x[:, 0], x[:, 1], y, color='blue', label="Data Points")
-        ax.set_xlabel("Feature 1 (x1)")
-        ax.set_ylabel("Feature 2 (x2)")
-        ax.set_zlabel("Labels (z)")
-        ax.set_title("3D Scatter Plot of Features and Labels")
-        plt.show()
-
-    return x, y, beta
-
-def lagged_returns(num_lags=3):
-    tickers = ['AAPL', 'MSFT']
-    data = yf.download(tickers, period='1y', interval='1d')
+    :param data: Pandas DataFrame (e.g., from yfinance)
+    :param tickers: list of ticker symbols
+    :param num_lags: number of lagged days to create
+    :return: Modified DataFrame with new columns
+    """    
+    df = data.copy()
 
     # Calculate daily Percent Change in Close Price for each ticker
     for ticker in tickers:
-        data[('Percent_change', ticker)] = data['Close'][ticker].pct_change() * 100
+        df[('Percent_change', ticker)] = df['Close'][ticker].pct_change() * 100
 
     # Drop NaN values 
-    data.dropna(inplace=True)
+    df.dropna(inplace=True)
 
-    # Calculate Average Daily Returns
-    avg_daily_returns = {
-        ticker : data['Percent_change'][ticker].mean()
-        for ticker in tickers
-    }
-
-    # print("Average Daily Returns")
-    # for ticker, avg_ret in avg_daily_returns.items():
-    #     print(f"{ticker}: {avg_ret:.2f}%")
-
-    # Create labeled data
-    
+    # Create lagged  data
     for ticker in tickers:
         for lag in range(1, num_lags + 1):
-            data[(f'Lagged_{ticker}', f'{lag}_d')] = data[('Percent_change', ticker)].shift(lag) 
+            df[(f'Lagged_{ticker}', f'{lag}_d')] = df[('Percent_change', ticker)].shift(lag) 
     
     # Drop NaN values 
-    data.dropna(inplace=True)
+    df.dropna(inplace=True)   
+    return df
 
-    lagged_features = [col for col in data.columns if 'Lagged' in col[0]]
-    X = data[lagged_features].values
-    y = data['Percent_change']['AAPL'].values.reshape(-1, 1)
+# Calculate Averages of column
+def calc_avg_ret(data, tickers, col_name='Percent_change'):
+    """
+    Calculate the average return for each ticker under col_name.
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    :param data: Pandas DataFrame
+    :param tickers: list of tickers
+    :param col_name: top-level column name (e.g. 'Percent_change')
+    :return: dict of {ticker: average return}
+    """    
+    avg_returns = {}
+    for ticker in tickers:
+        total = 0 
+        series = data[col_name][ticker]
+        for val in series:
+            total += val
+        avg_returns[ticker] = total / len()
+
+    print(f"Averages of {col_name}")
+    for ticker, avg_ret in avg_returns.items():
+        print(f"{ticker}: {avg_ret:.2f}%")
+    
+    return avg_returns
+
+# Calculate Std of Column
+def calc_std(data, tickers, col_name='Percent_change'):
+    std_dic = {}
+
+    for ticker in tickers:
+        total = 0
+        for val in data[col_name][ticker]:
+            total += val
+        
+        mean = total / len(data[col_name][ticker])
+        total = 0
+        for val in data[col_name][ticker]:
+            total += (val - mean) ** 2
+        
+        var = total / (len(data[col_name][ticker]) - 1)
+        std = math.sqrt(var)
+        std_dic[ticker] = std
+
+    print(f"Std of {col_name}")
+    for ticker, std in std_dic.items():
+        print(f"{ticker}: {std:.2f}")
+
+    return std_dic
+
+# Calculate Covariance Matrix Between Assets
+def calc_cov(data, col_name='Percent_change'):
+    df = data[col_name]
+    columns = df.columns
+    n_cols = len(columns)
+    
+    # Initialize covariance matrix
+    cov_matrix = [[0.0 for _ in range(n_cols)] for _ in range(n_cols)]
+
+    # Compute means
+    means = {}
+    for col in columns:
+        total = 0
+        for val in df[col]:
+            total += val
+        means[col] = total / len(df[col])
+
+    # Compute sample covariance
+    for i in range(n_cols):
+        i_col = columns[i]
+        n = len(df[i_col])  # same length across columns assumed
+        for j in range(i, n_cols):
+            j_col = columns[j]
+            cov_sum = 0
+            for k in range(n):
+                cov_sum += (df[i_col][k] - means[i_col]) * (df[j_col][k] - means[j_col])
+
+            cov_val = cov_sum / (n - 1)
+            cov_matrix[i][j] = cov_val
+            cov_matrix[j][i] = cov_val  # symmetric
+
+    print("Covariance Matrix:")
+    print(cov_matrix)
+    return cov_matrix
+
+# Calculate Correlation Matrix 
+def calc_corr(data, cov_matrix, std_dict, col_name='Percent_change'):
+    df = data[col_name]
+    columns = df.columns
+    n_cols = len(columns)
+    corr_matrix = [[0.0 for _ in range(n_cols)] for _ in range(n_cols)]
+
+    for i in range(n_cols):
+        for j in range(i, n_cols):
+            i_col = columns[i]
+            j_col = columns[j]
+            denom = (std_dict[i_col] * std_dict[j_col])
+            if (denom == 0):
+                corr_val = 0
+            else:
+                corr_val = cov_matrix[i][j] / denom
+            corr_matrix[i][j] = corr_val
+            corr_matrix[j][i] = corr_val
+    
+    print("Correlation Matrix:")
+    print(corr_matrix)
+    return corr_matrix
+
+
+
+    # lagged_features = [col for col in data.columns if 'Lagged' in col[0]]
+    # X = data[lagged_features].values
+    # y = data['Percent_change']['AAPL'].values.reshape(-1, 1)
+
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     # # Output shapes of the splits
     # print("Shapes:")
     # print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
     # print(f"y_train: {y_train.shape}, y_test: {y_test.shape}")
 
-    # print(X_train[:5])
-    # print(y_train[:5])
-    # print(X_test[:5])
-    # print(y_test[:5])
-
-
-    return X_train, X_test, y_train, y_test
-
-# lagged_returns()
-
-# # Calculate Std of Daily Returns
-# std_daily_returns = {
-#     ticker : data['Percent_change'][ticker].std()
-#     for ticker in tickers
-# }
-
-# print("Std of Daily Returns")
-# for ticker, std in std_daily_returns.items():
-#     print(f"{ticker}: {std:.2f}")
-
-# # Correlation Matrix Between Assets
-# corr_matrix = data['Percent_change'].corr()
-# print("Correlation Matrix:")
-# print(corr_matrix)
-
-# # Covariance Matrix from Daily Returns
-# cov_matrix = data['Percent_change'].cov()
-# print("Covariance Matrix:")
-# print(cov_matrix)
+    # return X_train, X_test, y_train, y_test
