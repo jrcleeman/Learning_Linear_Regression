@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from get_data import lagged_returns
+from get_data import get_ticker_data, get_labeled_data, get_lag_ret_data, get_calc_stats
 
 class LinearRegression:
     def __init__(self):
@@ -82,17 +82,18 @@ def plot_training(beta, beta_star, x, y):
 
 
 def main():
-    np.random.seed(42)   
-    # num_pnts = 1000 
-    # num_feat = 2
-    # x, y, beta_star = mv_simulate_data(num_pnts, num_feat)
-    # beta, cost_hist = grad_descent(x, y)
-    # plot_training(beta, beta_star, x, y)
+    np.random.seed(42)  
+    tickers = ['AAPL', 'MSFT'] 
+    data = get_ticker_data(tickers)
+    data = get_lag_ret_data(data, tickers)
 
-    X_train, X_test, y_train, y_test = lagged_returns()
+    means_s, stds_s, cov_df, corr_df = get_calc_stats(data)
+
+    X_train, X_test, y_train, y_test = get_labeled_data(data)
     model = LinearRegression()
     model.fit_grad_descent(X_train, y_train)
-    test_rmse = model.cost(X_test, y_test)
-    print(f'Test RMSE: {test_rmse}')
+    mse = 2 * model.cost(X_test, y_test)
+    test_rmse = np.sqrt(mse)
+    print(f"Test RMSE: {test_rmse}")
 
 main()
