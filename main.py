@@ -1,99 +1,160 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from get_data import get_ticker_data, get_labeled_data, get_lag_ret_data, get_calc_stats
 
-class LinearRegression:
-    def __init__(self):
-        pass
-
-    def cost(self, x, y):
-        residuals = y - (x @ self.beta)
-        return (residuals ** 2).sum() / (2 * len(y))
-
-    # Manual computation
-    def fit_ols(self, x, y):
-        self.beta = np.linalg.inv(x.transpose() @ x) @ x.transpose() @ y
-
-    def grad(self, x, y):
-        grad = (x.transpose() @ ((x @ self.beta) - y)) / len(y)
-        return grad
-    
-    # Gradient Descent
-    def fit_grad_descent(self, x, y, step_size=0.01, num_epochs=1000):
-        self.beta = np.random.normal(0,1,(x.shape[1], 1)) # initial guess
-        cost_hist = []
-
-        for i in range(num_epochs):
-            loss = self.cost(x, y)
-            cost_hist.append(loss)
-            self.beta = self.beta - (step_size * self.grad(x, y)) # Update
-
-            if (i % 100) == 0:
-                print("Epoch " + str(i) + " Loss is: " + str(loss) + "\n")
-
-        return cost_hist
-    
-    def predict(self, x):
-        print(x @ self.beta)
-        return x @ self.beta
-
-def plot_training(beta, beta_star, x, y):
-    print("Beta found: " + str(beta))
-    print("True Beta: " + str(beta_star))
-
-    # plot beta plane
-    x1_min, x1_max = np.min(x[:,0]), np.max(x[:,0])
-    x2_min, x2_max = np.min(x[:,1]), np.max(x[:,1])
-    x1_vals = np.expand_dims(np.linspace(x1_min, x1_max, 50), axis=1)
-    x2_vals = np.expand_dims(np.linspace(x2_min, x2_max, 50), axis=1)
-    x1, x2 = np.meshgrid(x1_vals, x2_vals)
-
-    # Flatten each mesh
-    flat_X1 = x1.ravel()  # shape (2500,)
-    flat_X2 = x2.ravel()  # shape (2500,)
-
-    # Create a feature matrix for these points (assuming order: x1, x2, 1)
-    ones = np.ones_like(flat_X1)  
-    mesh_features = np.column_stack((flat_X1, flat_X2, ones))  # shape (2500, 3)
-
-    # Predict z for each point
-    Z_pred_flat = mesh_features @ beta  # shape (2500,1) or (2500,) depending on dims
-
-    # Reshape back to (50, 50)
-    Z_pred = Z_pred_flat.reshape(x1.shape)  # or (50, 50) 
-
-    # Create a 3D scatter plot
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Plot all points with the same color
-    ax.scatter(x[:, 0], x[:, 1], y, color='blue', label="Data Points")
-
-    ax.plot_surface(x1, x2, Z_pred, alpha=0.7, cmap='viridis')
-
-    # Add labels and title
-    ax.set_xlabel("Feature 1 (x1)")
-    ax.set_ylabel("Feature 2 (x2)")
-    ax.set_zlabel("Labels (z)")
-    ax.set_title("3D Scatter Plot of Features and Labels")
-
-    # Show the plot
-    plt.show()
+from syn_data import generate_dataset  # Assuming your updated file is named syn_data.py
+from lin_reg import LinearRegression   # Assuming your linear regression code is in lin_reg.py
 
 
 def main():
-    np.random.seed(42)  
-    tickers = ['AAPL', 'MSFT'] 
-    data = get_ticker_data(tickers)
-    data = get_lag_ret_data(data, tickers)
+    N = 300
+    X, y = generate_dataset(N)
 
-    means_s, stds_s, cov_df, corr_df = get_calc_stats(data)
+    # 2. Define Combinations of Hyperparameters
+    #    --------------------------------------
+    methods = ["ols", "gradient_descent"]
+    reg_lambdas = np.linspace(0.0, 0.8, 10)
+    momenta = np.linspace(0.0, 0.8, 10)
 
-    X_train, X_test, y_train, y_test = get_labeled_data(data)
-    model = LinearRegression()
-    model.fit_grad_descent(X_train, y_train)
-    mse = 2 * model.cost(X_test, y_test)
-    test_rmse = np.sqrt(mse)
-    print(f"Test RMSE: {test_rmse}")
+    # We'll store results in a dictionary:
+    #   results[(method, reg_lambda, momentum)] = {
+    #       "final_mse": ...,
+    #       "cost_history": ...
+    #   }
+    # Note: OLS doesn't have an iterative cost history, so we may store an empty list or None.
+    results = {}
 
-main()
+    # Loop Over Configurations and Fit
+    for method in methods:
+        for reg_lambda in reg_lambdas:
+            for momentum in momenta:
+                # Skip momentum for OLS, as it has no meaning
+                if method == "ols" and momentum != 0.0:
+                    continue
+
+                # Create the model
+                model = LinearRegression(
+                    reg_lambda=reg_lambda,
+                    momentum=momentum,
+                    step_size=0.01,   # could tune
+                    num_epochs=300    # could tune
+                )
+
+                # Fit the model
+                if method == "ols":
+                    model.fit(X, y, method="ols")
+                    cost_history = None  # Not iterative, so no history
+                else:
+                    cost_history = model.fit_grad_descent(X, y)
+
+                # Evaluate final MSE on training set
+                predictions = model.predict(X)
+                # Convert predictions to 1D if needed
+                if predictions.ndim == 2:
+                    predictions = predictions.flatten()
+
+                # Mean Squared Error
+                mse = np.mean((y - predictions) ** 2)
+
+                # Store in results dictionary
+                key = (method, reg_lambda, momentum)
+                results[key] = {
+                    "final_mse": mse,
+                    "cost_history": cost_history
+                }
+                print(f"Finished {key}: MSE = {mse:.5f}")
+
+    # --------------------------------------------------
+    #  (A) Separate OLS results from GD results
+    # --------------------------------------------------
+    ols_results = {}
+    gd_results = {}
+    
+    for (method, reg_lmb, mom) in results.keys():
+        if method == "ols":
+            ols_results[reg_lmb] = results[(method, reg_lmb, mom)]["final_mse"]
+        else:  # gradient_descent
+            gd_results[(reg_lmb, mom)] = results[(method, reg_lmb, mom)]
+
+    # --------------------------------------------------
+    #  (B) Plot OLS MSE vs. reg_lambda
+    #      (momentum is always 0 here)
+    # --------------------------------------------------
+    if ols_results:
+        # Sort by reg_lambda
+        sorted_reg_lmb = sorted(ols_results.keys())
+        sorted_mse = [ols_results[rl] for rl in sorted_reg_lmb]
+
+        plt.figure(figsize=(5, 4))
+        plt.plot(sorted_reg_lmb, sorted_mse, marker="o", label="OLS MSE")
+        plt.title("OLS MSE vs. reg_lambda")
+        plt.xlabel("reg_lambda")
+        plt.ylabel("MSE")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    # --------------------------------------------------
+    #  (C) Heatmap of Gradient Descent MSE
+    #      X-axis: momentum, Y-axis: reg_lambda
+    # --------------------------------------------------
+    # 1. Collect unique reg_lambdas & momenta
+    gd_reg_lmbs = sorted(list({k[0] for k in gd_results.keys()}))
+    gd_moms = sorted(list({k[1] for k in gd_results.keys()}))
+
+    # 2. Build a 2D array of MSE for heatmap
+    mse_matrix = np.zeros((len(gd_reg_lmbs), len(gd_moms)))
+    
+    for i, r_lmb in enumerate(gd_reg_lmbs):
+        for j, mom in enumerate(gd_moms):
+            mse_matrix[i, j] = gd_results[(r_lmb, mom)]["final_mse"]
+
+    plt.figure(figsize=(6, 5))
+    # imshow or pcolormesh can be used for heatmaps
+    c = plt.imshow(mse_matrix, 
+                   origin='lower',  # so the [0,0] is bottom-left
+                   aspect='auto', 
+                   extent=(min(gd_moms), max(gd_moms), min(gd_reg_lmbs), max(gd_reg_lmbs)))
+    plt.colorbar(c, label="MSE")
+    plt.xlabel("Momentum")
+    plt.ylabel("reg_lambda")
+    plt.title("MSE Heatmap for Gradient Descent")
+    plt.tight_layout()
+    plt.show()
+
+    # --------------------------------------------------
+    #  (D) Pick a small subset of GD combos for cost-curve plotting
+    #      e.g., the best 3 combos and worst 3 combos by final MSE
+    # --------------------------------------------------
+    # 1. Extract (reg_lmb, mom, final_mse, cost_history) in a list
+    all_gd_data = []
+    for (r_lmb, mom), val in gd_results.items():
+        final_mse = val["final_mse"]
+        cost_hist = val["cost_history"]
+        all_gd_data.append((r_lmb, mom, final_mse, cost_hist))
+    
+    # 2. Sort by final_mse to find best/worst
+    all_gd_data.sort(key=lambda x: x[2])  # sort by final_mse ascending
+    
+    # best 3
+    best_3 = all_gd_data[:3]
+    # worst 3
+    worst_3 = all_gd_data[-3:]
+    chosen_runs = best_3 + worst_3
+
+    # 3. Plot them
+    plt.figure(figsize=(7, 5))
+    for (r_lmb, mom, mse_val, cost_hist) in chosen_runs:
+        label = f"λ={r_lmb:.2f}, mom={mom:.2f}, MSE={mse_val:.3f}"
+        plt.plot(cost_hist, label=label)
+
+    plt.title("Cost Curves for Selected GD Runs (Best & Worst)")
+    plt.xlabel("Epoch")
+    plt.ylabel("Cost (MSE portion)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
