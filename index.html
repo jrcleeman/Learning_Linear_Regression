@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>My GitHub Pages with MathJax</title>
+  <title>Linear Regression from Scratch: OLS, Gradient Descent, Regularization, and Momentum</title>
   <!-- Polyfill for older browsers -->
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <!-- MathJax configuration and library -->
@@ -10,22 +10,215 @@
           src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
   </script>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+    body { 
+      font-family: Arial, sans-serif; 
+      line-height: 1.6; 
+      margin: 40px;
+      max-width: 800px;
+    }
+    h1, h2, h3, h4, h5, h6 { margin-top: 1.2em; }
+    pre { 
+      background-color: #f4f4f4; 
+      padding: 10px; 
+      overflow: auto;
+    }
+    code { 
+      background-color: #f4f4f4; 
+      padding: 2px 4px; 
+      border-radius: 3px;
+    }
+    hr { margin: 2em 0; }
   </style>
 </head>
 <body>
-  <h1>Welcome to My GitHub Pages Site with MathJax</h1>
+  <h1>Linear Regression from Scratch: OLS, Gradient Descent, Regularization, and Momentum</h1>
+  <p>This repository implements linear regression from scratch. It covers both the analytical solution via Ordinary Least Squares (OLS) and an iterative solution using Gradient Descent. The implementation also incorporates ridge regularization (L2 regularization) and momentum to improve convergence.</p>
+  
+  <h2>Ordinary Least Squares (OLS)</h2>
+  
+  <h3>Mathematical Formulation</h3>
+  <p>In linear regression, we model the relationship between the dependent variable \( y \) and independent variables (features) \( X \) as:</p>
   <p>
-    Here is an inline formula: \( E = mc^2 \).
+    \[
+      y = X\beta + \varepsilon
+    \]
   </p>
+  <p>where:</p>
+  <ul>
+    <li>\( y \in \mathbb{R}^n \) is the vector of target values.</li>
+    <li>\( X \in \mathbb{R}^{n \times p} \) is the matrix of features. Often, the last column of \( X \) is set to 1 to incorporate the intercept.</li>
+    <li>\( \beta \in \mathbb{R}^p \) is the vector of coefficients.</li>
+    <li>\( \varepsilon \) is the error term.</li>
+  </ul>
+  <p>The objective of OLS is to minimize the sum of squared errors:</p>
   <p>
-    And here is a displayed equation:
+    \[
+      \min_{\beta} \; \| y - X\beta \|^2 = (y - X\beta)^\top (y - X\beta)
+    \]
   </p>
-  \[
-    \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
-  \]
+  
+  <h3>Derivation of the Normal Equations</h3>
+  <p>To find the optimal \(\beta\), we set the derivative of the loss with respect to \(\beta\) to zero:</p>
   <p>
-    Your repository README can now include fully rendered math when viewed on this page.
+    \[
+      \frac{\partial}{\partial \beta} \| y - X\beta \|^2 = -2X^\top (y - X\beta) = 0
+    \]
   </p>
+  <p>This yields the <strong>normal equations</strong>:</p>
+  <p>
+    \[
+      X^\top X \beta = X^\top y
+    \]
+  </p>
+  <p>Assuming \(X^\top X\) is invertible, the solution is:</p>
+  <p>
+    \[
+      \beta = \left( X^\top X \right)^{-1} X^\top y
+    \]
+  </p>
+  
+  <h4>Incorporating Regularization</h4>
+  <p>To mitigate overfitting, we add a ridge regularization term (excluding the intercept) to the loss function:</p>
+  <p>
+    \[
+      \min_{\beta} \; \| y - X\beta \|^2 + \lambda \|\beta_{\text{non-intercept}}\|^2
+    \]
+  </p>
+  <p>The corresponding normal equations become:</p>
+  <p>
+    \[
+      \left( X^\top X + \lambda I^* \right) \beta = X^\top y
+    \]
+  </p>
+  <p>where \(I^*\) is an identity matrix modified to have a zero in the position corresponding to the intercept.</p>
+  
+  <hr>
+  
+  <h2>Gradient Descent Optimization</h2>
+  <p>When \(X^\top X\) is large or nearly singular, computing its inverse becomes impractical. Instead, <strong>gradient descent</strong> iteratively minimizes the loss.</p>
+  
+  <h3>Standard Gradient Descent</h3>
+  <p>For the unregularized loss function defined as:</p>
+  <p>
+    \[
+      J(\beta) = \frac{1}{2n} \sum_{i=1}^{n} \left( y_i - x_i^\top \beta \right)^2,
+    \]
+  </p>
+  <p>the gradient is:</p>
+  <p>
+    \[
+      \nabla_\beta J(\beta) = -\frac{1}{n} X^\top (y - X\beta)
+    \]
+  </p>
+  <p>The update rule for gradient descent is:</p>
+  <p>
+    \[
+      \beta^{(t+1)} = \beta^{(t)} - \alpha \nabla_\beta J(\beta^{(t)})
+    \]
+  </p>
+  <p>where \(\alpha\) is the learning rate.</p>
+  
+  <h3>Ridge Regularization</h3>
+  <p>When ridge regularization is included, the loss function becomes:</p>
+  <p>
+    \[
+      J(\beta) = \frac{1}{2n} \sum_{i=1}^{n} \left( y_i - x_i^\top \beta \right)^2 + \frac{\lambda}{2} \sum_{j \neq \text{intercept}} \beta_j^2
+    \]
+  </p>
+  <p>The gradient is then:</p>
+  <p>
+    \[
+      \nabla_\beta J(\beta) = -\frac{1}{n} X^\top (y - X\beta) + \lambda \tilde{\beta}
+    \]
+  </p>
+  <p>where \(\tilde{\beta}\) is the vector \(\beta\) with the intercept component zeroed out.</p>
+  
+  <h3>Momentum in Gradient Descent</h3>
+  <p>Momentum is used to accelerate gradient descent by smoothing updates. The update with momentum is given by:</p>
+  <ol>
+    <li>
+      <p>Compute the gradient:</p>
+      <p>
+        \[
+          g^{(t)} = \nabla_\beta J(\beta^{(t)})
+        \]
+      </p>
+    </li>
+    <li>
+      <p>Update the velocity:</p>
+      <p>
+        \[
+          v^{(t+1)} = \gamma v^{(t)} + \alpha g^{(t)}
+        \]
+      </p>
+      <p>where \(\gamma\) (typically between 0 and 0.9) is the momentum coefficient.</p>
+    </li>
+    <li>
+      <p>Update the parameters:</p>
+      <p>
+        \[
+          \beta^{(t+1)} = \beta^{(t)} - v^{(t+1)}
+        \]
+      </p>
+    </li>
+  </ol>
+  <p>The momentum term helps to overcome local minima and improves convergence speed by damping oscillations.</p>
+  
+  <hr>
+  
+  <h2>Implementation Details</h2>
+  <p>The repository is organized into several modules:</p>
+  <ul>
+    <li>
+      <strong><code>main.py</code></strong>: Coordinates data generation, experiments, and plotting. It employs logging to track the experiment’s progress.
+    </li>
+    <li>
+      <strong><code>lin_reg.py</code></strong>: Contains the <code>LinearRegression</code> class, which implements:
+      <ul>
+        <li><strong>OLS:</strong> Solves the normal equations directly.</li>
+        <li><strong>Gradient Descent:</strong> Iteratively updates \(\beta\) using gradient descent with support for early stopping, ridge regularization, and momentum.</li>
+      </ul>
+    </li>
+    <li>
+      <strong><code>syn_data.py</code></strong>: Generates synthetic datasets using custom recurrence rules. The recurrence formulas simulate dependencies between features.
+    </li>
+    <li>
+      <strong><code>plot_results.py</code></strong>: Provides functions to plot the OLS results (MSE vs. regularization parameter) and a heatmap of gradient descent performance over various hyperparameter combinations.
+    </li>
+  </ul>
+  <p>Each module uses detailed logging and type hints for improved maintainability and clarity.</p>
+  
+  <hr>
+  
+  <h2>Usage</h2>
+  <h3>1. Clone the Repository</h3>
+  <pre><code>git clone https://github.com/yourusername/your-repo-name.git
+cd your-repo-name
+  </code></pre>
+  <h3>2. Install Dependencies</h3>
+  <pre><code>pip install numpy matplotlib tqdm
+  </code></pre>
+  <h3>3. Run the Experiments</h3>
+  <pre><code>python main.py
+  </code></pre>
+  <h3>4. Viewing Rendered Math</h3>
+  <p>To view the equations rendered as intended:</p>
+  <ul>
+    <li><strong>Option 1:</strong> Host your documentation on GitHub Pages and configure it to load MathJax (see instructions in the repository).</li>
+    <li><strong>Option 2:</strong> Convert your equations into images and embed them in the README.</li>
+    <li><strong>Option 3:</strong> Use a browser extension that renders LaTeX in GitHub markdown.</li>
+  </ul>
+  
+  <hr>
+  
+  <h2>Conclusion</h2>
+  <p>This project provides a deep dive into linear regression by implementing:</p>
+  <ul>
+    <li><strong>Ordinary Least Squares (OLS):</strong> With a rigorous derivation of the normal equations and closed-form solution.</li>
+    <li><strong>Gradient Descent:</strong> Including detailed treatment of the update rules, ridge regularization, and momentum.</li>
+    <li><strong>Robust Implementation:</strong> Featuring detailed logging, type hints, and modular design.</li>
+  </ul>
+  <p>The repository serves as both an educational resource and a foundation for extending regression techniques. Contributions, issues, and suggestions are welcome!</p>
+  <p><em>Happy coding!</em></p>
 </body>
 </html>
