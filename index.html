@@ -13,9 +13,9 @@
     body { 
       font-family: Arial, sans-serif; 
       line-height: 1.6; 
-      margin: 40px auto; /* centers container horizontally */
-      max-width: 800px;
-      text-align: center; /* center text by default */
+      margin: 40px;           /* 40px margin on all sides */
+      max-width: 800px;       /* Maximum width */
+      text-align: left;       /* Text is left-aligned */
     }
     h1, h2, h3, h4, h5, h6 { 
       margin-top: 1.2em; 
@@ -24,7 +24,7 @@
       background-color: #f4f4f4; 
       padding: 10px; 
       overflow: auto;
-      text-align: left; /* preserve code alignment */
+      text-align: left; 
     }
     code { 
       background-color: #f4f4f4; 
@@ -34,10 +34,10 @@
     hr { 
       margin: 2em 0; 
     }
-    /* Override text alignment for lists */
+    /* Ensure lists remain left-aligned */
     ul { 
       text-align: left; 
-      display: inline-block; 
+      margin-left: 40px; /* extra left margin for lists */
     }
   </style>
 </head>
