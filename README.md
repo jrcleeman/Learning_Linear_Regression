@@ -1,34 +1,6 @@
 # Linear Regression from Scratch: OLS, Gradient Descent, Regularization, and Momentum
 
-This repository implements linear regression completely from scratch. It covers both the analytical solution via Ordinary Least Squares (OLS) and an iterative solution using Gradient Descent. The implementation also incorporates ridge regularization (L2 regularization) and momentum to improve convergence. This README provides a mathematically rigorous explanation of each component and discusses why these techniques are useful.
-
----
-
-## Table of Contents
-1. [Introduction](#introduction)
-2. [Ordinary Least Squares (OLS)](#ordinary-least-squares-ols)
-   - [Mathematical Formulation](#mathematical-formulation)
-   - [Derivation of the Normal Equations](#derivation-of-the-normal-equations)
-3. [Gradient Descent Optimization](#gradient-descent-optimization)
-   - [Standard Gradient Descent](#standard-gradient-descent)
-   - [Ridge Regularization](#ridge-regularization)
-   - [Momentum in Gradient Descent](#momentum-in-gradient-descent)
-4. [Implementation Details](#implementation-details)
-5. [Usage](#usage)
-6. [Conclusion](#conclusion)
-
----
-
-## Introduction
-
-Linear regression is one of the simplest and most widely used models in statistics and machine learning. The goal is to fit a linear model to data by minimizing the error between the predicted and observed values. There are two main approaches:
-
-- **Analytical Solution (OLS):** Computes the model parameters in closed form.
-- **Iterative Optimization (Gradient Descent):** Approximates the solution through iterative updates.
-
-Enhancements such as **ridge regularization** help prevent overfitting, and **momentum** can speed up and stabilize the convergence of gradient descent.
-
----
+This repository implements linear regression from scratch. It covers both the analytical solution via Ordinary Least Squares (OLS) and an iterative solution using Gradient Descent. The implementation also incorporates ridge regularization (L2 regularization) and momentum to improve convergence. 
 
 ## Ordinary Least Squares (OLS)
 
