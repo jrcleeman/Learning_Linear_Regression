@@ -1,4 +1,4 @@
-# Linear Regression from Scratch: OLS, Gradient Descent, Regularization, and Momentum
+# Linear Regression farom Scratch: OLS, Gradient Descent, Regularization, and Momentum
 
 This repository implements linear regression from scratch. It covers both the analytical solution via Ordinary Least Squares (OLS) and an iterative solution using Gradient Descent. The implementation also incorporates ridge regularization (L2 regularization) and momentum to improve convergence. 
 
